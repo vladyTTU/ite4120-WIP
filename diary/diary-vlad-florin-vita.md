@@ -16,11 +16,12 @@ Budget: 137 hours of independent work (6 ECTS = 156 h, of which 19 h contact stu
 | 11.10.2026 | 1 | Independent | Group chose Option 1; AI drafted the FAULTS.01 specification | Draft the specification for Option 1 in the course template's shape | | | |
 | 11.10.2026 | 1 | Independent | Created the group repository (fork of the course template), installed GitHub Desktop, cloned it, opened pull request #1 with this diary | Step-by-step guidance on forking, cloning and opening a pull request | Told me to click "Use this template", but the course repository has no such button | Used Fork instead | PR #1 |
 | 13.10.2026 | 1 | Independent | Reviewed the user story part of the FAULTS specification; decided the open questions; added the spec files to the repository | Guide the review; turn the spec into the template's Markdown files | The draft had no way to fix a mistaken status change, and did not say what happens when a fixed fault comes back | Added an undo as a recorded correction; a recurring fault needs a new report; decided no e-mail and all reports visible; credited Villu for the idea | PR #1 |
+| 13.10.2026 | 0.5 | Independent | Set up the backend on my laptop: installed JDK 25, created a GitHub token, ran the template app and checked Swagger and the mock registry. PowerShell blocked the script at first; fixed by allowing local scripts (execution policy). | Step-by-step guidance on installing Java, the token and starting the backend | | | Gave a wrong total for the diary (9.1 instead of 8.6) | Checked the sum and corrected it |
 
 ## Totals
 
 | | Hours |
 | --- | --- |
-| Independent, logged | 8.1 |
+| Independent, logged | 8.6 |
 | Contact, logged | 5.9 |
-| Independent, left of 137 | 128.9 |
+| Independent, left of 137 | 128.4 |
