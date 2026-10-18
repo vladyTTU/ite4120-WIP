@@ -42,6 +42,10 @@ story develops Option 1.
   description, date seen in the future, address the register does not know.
 - An unreachable address register never blocks a report (fail open); the report
   is flagged as "address not verified".
+- The details of a report can be corrected while it is still New. Once an
+  officer starts work, the report is locked.
+- A duplicate or test report can be removed from all lists; it stays in the
+  database.
 - Every new report starts as New, and every status change is kept in a history.
 - A status only moves forward: New → In progress → Resolved, or
   New / In progress → Rejected. Resolved and Rejected are final. If a fixed
