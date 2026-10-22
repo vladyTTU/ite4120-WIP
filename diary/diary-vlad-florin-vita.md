@@ -21,11 +21,13 @@ Budget: 137 hours of independent work (6 ECTS = 156 h, of which 19 h contact stu
 | 17.10.2026 | 3 | Independent | Clean transcript and study notes for session 3 | Clean the session 3 transcript and write study notes, in the same structure as session 2 | | | |
 | 18.10.2026 | 0.4 | Independent | Synced our fork with the lecturer's template updates, reviewed and merged Villu's diary, deleted merged branches, switched on the automatic checks (GitHub Actions) | Why Villu's pull request showed three extra files, and how to remove them | | | PR #2 |
 | 18.10.2026 | 0.6 | Independent | Updated the specification after session 3. Decided: a report can be edited only while New; it can be retired at any time without a reason; we keep the address check with an imitated register. | Revise the specification against the REST API manual and the lecture | The first draft followed only the assessment criteria: it had no edit or retire operation, which the REST API manual requires, and it used a verb in a path (/status/undo). It also did not warn me that GitHub Desktop opens the pull request against the lecturer's repository. | Added edit (PUT) and retire (DELETE), renamed the paths to /status-changes and /corrections, raised the business tests from 8 to 25; caught the wrong target before submitting and opened the pull request in our group repository | PR #3 |
+| 22.10.2026 | 1 | Independent | Merged the specification update (PR #3). Posted a review of Villu's first API code (PR #4) listing what does not match the specification yet: paths, the list, categories and summary endpoints, the Location header, the date check, messages, Swagger and automated tests; asked him to leave the address register to me. Installed Node.js and ran the frontend on my laptop to prepare for session 4. | Compare Villu's code with the specification and the assessment criteria and draft the review; step-by-step guidance on installing Node.js and running the frontend | The review text it drafted made GitHub turn @RequestMapping, @Operation and @ApiResponse into mentions of GitHub users | Edited the comment and put the three names in code formatting | PR #3, PR #4 |
+| 22.10.2026 | 0.3 | Independent | Built the imitated address register, my part of the X-Road criterion: GET /mock-registry/addresses answers with the address code (ADS-0001 to ADS-0004) or 404. Tested a known address, the same address in lower case with extra spaces, and an unknown address in the browser. Opened PR #5 for Villu's review. | Write the imitated register to match the specification; guide me through adding, testing and committing it | Its test links broke at the first space, so the browser sent only part of the address and every test answered 404 | Opened the links with %20 for the spaces; all three answers were then correct | PR #5 |
 
 ## Totals
 
 | | Hours |
 | --- | --- |
-| Independent, logged | 12.6 |
+| Independent, logged | 13.9 |
 | Contact, logged | 8.9 |
-| Independent, left of 137 | 124.4 |
+| Independent, left of 137 | 123.1 |
