@@ -76,6 +76,7 @@ Changesets (done, on branch `faults-liquibase-api`): `faults-schema.sql`,
 | `POST /api/faults/reports/{id}/status-changes` | move the report to a new status; answers **201** with the new history row | 400 · 404 · 409 move not allowed |
 | `POST /api/faults/reports/{id}/corrections` | undo the last status change, with a required note; answers **201** with the new history row | 400 · 404 · 409 nothing to correct |
 | `GET /api/faults/reports/summary` | count of active reports per category and status | — |
+| `GET /api/faults/reports/{id}/address` | the address register's answer for the report's address, asked live through the adapter; nothing is stored | 404 no active report, or the register does not know the address · 502 register not reachable |
 
 Paths name things (reports, status changes, corrections), never actions; the
 HTTP method says what happens. All endpoints require
@@ -95,6 +96,7 @@ where `correction` is true for a correction.
 The status history uses the platform list shape `{ data, meta }`.
 The summary is a list of `{ "categoryCode", "status", "count" }`, one item per
 combination that has at least one active report.
+The live address answer is `{ "address", "code" }`, as the register sends it.
 
 **List rules.** Sort keys: `id`, `observedOn`, `status`, `categoryCode`
 (`sort=-id` is the default). `status` must be one of the four values and
@@ -119,6 +121,7 @@ combination that has at least one active report.
 | edit after work started | 409 | `a report can only be edited while it is New` |
 | move not in the status table | 409 | `status cannot change from RESOLVED to IN_PROGRESS` |
 | nothing to correct | 409 | `nothing to correct` |
+| live address lookup, register not reachable | 502 | `address register not reachable` |
 
 The messages that start with a field name (`description: ...`, `toStatus: ...`)
 are the platform's Bean Validation defaults, so they need no custom text.
@@ -135,6 +138,12 @@ outcomes.
 | unreachable (no answer within 2 seconds, or a 5xx) | saved with `address_code` empty, shown as "address not verified" |
 
 It is called on create, and on edit only when the address text changed.
+
+It is also called **live** by `GET /api/faults/reports/{id}/address`, when the
+report page or the list's detail panel opens, in the same way as the example's
+`/owner`. The answer is shown on the screen and never stored. When the register
+does not answer, the endpoint answers 502 and the screen leaves the line out:
+the report itself never depends on the register.
 
 **The imitated register.** `MockAddressRegistryController`, in the same shape
 as the example's `MockOwnerRegistryController`: enabled by
@@ -170,22 +179,31 @@ would send residents' locations to a third party.
 
 ## UI  *(→ session 4)*
 
+Every component below is in the course library (Storybook at
+<https://emr.helex.dev/storybook>) or in antd, under that exact name. Dates are
+shown as DD/MM/YYYY and times as DD/MM/YYYY HH:mm; the API always uses ISO dates
+(YYYY-MM-DD).
+
 | Screen | Element | Component | Rules |
 | --- | --- | --- | --- |
-| Report list `/faults` | table | `ResourceList` | columns: report number (a link to the report page), category, address, status, reported on, "not verified" mark; search by address; filters by status and category |
+| Report list `/faults` | table | `ResourceList` | columns: report number (locked, an `AppLink` to the report page), category (`AppTag`), address, status (`AppStatusTag`), reported on, date seen (hidden by default), "not verified" mark; search by address; newest first |
+| | filter | `ResourceList` filter card | status `Select` and category `Select` (options from `/categories`); Apply filters the list; Clear all resets it |
 | | report button | `AppButtonPrimary` | "Report a problem", opens the form |
-| | summary | `AppCard` | counts per status and category from `/summary` |
-| Report form `/faults/new` | category | `Select` | required; options from `/categories` |
+| | detail panel | `ResourceList.detailView` | category, address, description, date seen, status; the register's answer from `/address`, marked "via the address register (mock / X-Road)"; silently left out when the register fails |
+| | summary | `AppCard` | counts per category and status from `/summary` |
+| | loading, error, empty | `ResourceList` states | while loading: the list's loading indicator; on error: the problem text in a notification and "Could not load reports" in place of the table, never an empty list; with no reports: "No reports yet". The summary card follows the same rule. |
+| Report form `/faults/new` | form | `AppCard` | title "Report a problem" |
+| | category | `Select` | required; options from `/categories` |
 | | address | `Input` | required, ≤255 |
-| | description | `Input.TextArea` | required, ≤1000 |
-| | date seen | `DatePicker` | optional; no future dates |
-| | submit | `AppButtonPrimary` | on success: notification with the report number, then the report page; on 400 the problem text is shown as it comes |
+| | description | `Input.TextArea` | required, ≤1000, with a character counter |
+| | date seen | `AppDatePicker` | optional; not in the future (`max='now'`), so no future day can be picked; format DD/MM/YYYY |
+| | submit | `AppButtonPrimary` | "Send report"; disabled until category, address and description are filled; shows loading while sending, so a double-click sends one report; on 201: a notification with the report number, then the report page (the `Location` header); on 400: the problem text, word for word, in a notification |
 | | cancel | `AppButtonSecondary` | back to the list, nothing saved |
-| Report page `/faults/{id}` | report | `ResourceForm` + `useDataController` | category, address, description, date seen, status; "address not verified" shown when `address_code` is empty |
-| | edit | `AppButtonSecondary` "Edit" | shown only while New; switches the form to edit mode; save sends `PUT`; 409 text shown as it comes |
-| | remove | `AppButtonSecondary` "Remove report" | asks for confirmation ("The report will be hidden from all lists. It stays in the database."); on 204, back to the list with a notification |
-| | status history | `AppCard` | from `/status-changes`; one line per row: from, to, note, who, when; corrections marked "Undo" |
-| | change status | `Select` + `Input.TextArea` + `AppButtonPrimary` | offers only the allowed next statuses; note required for Rejected; 409 text shown as it comes |
+| Report page `/faults/{id}` | view / edit | `ResourceForm` + `useDataController` | sections Report (category, address, description, date seen) and Status (status, history, change status, undo); Edit only while New, Save is `PUT`, Cancel restores; "Remove report" is the form's delete action, the soft `DELETE`, with the confirmation "Remove this report? It is hidden from all lists and stays in the database."; on 204 back to the list with a notification; the buttons stay visible while scrolling |
+| | address | `ResourceForm` field, view mode | the address as typed; "address not verified" when there is no code; the register's answer from `/address`, left out when the register fails; the page never depends on it |
+| | status | `AppStatusTag` | NEW, IN_PROGRESS, RESOLVED, REJECTED, each with its own colour |
+| | status history | `AppCard` | from `/status-changes`, oldest first: from, to, note, who, when (`AppTimestamp`); corrections marked "Undo" |
+| | change status | `Select` + `Input.TextArea` + `AppButtonPrimary` | offers only the allowed next statuses; note required for Rejected; a 409 text shown word for word |
 | | undo last change | `AppButtonSecondary` + `Input.TextArea` | shown only when the last row is an ordinary move; note required; asks for confirmation first; sends `POST /corrections` |
 | | metadata | `ResourceForm.sidebar` — `AppCard` of `FieldItem`s | created at / by, modified at / by, version; read-only |
 
@@ -318,13 +336,35 @@ knows" means the address is one of the four canned addresses above.
     When any `/api/faults` endpoint is called without an `Authorization` header,
     then the answer is 401 as `application/problem+json`.
 
+### Address register, live
+
+26. **The register's answer is shown live, and the report never depends on it.**
+    Given a report at "Ehitajate tee 5, Tallinn" with code ADS-0001, when its
+    address is asked for (`/address`), then the answer is 200 with "Ehitajate tee
+    5, Tallinn" and ADS-0001, and nothing new is stored. Given the register does
+    not answer, the same request answers 502 with "address register not
+    reachable", and reading the report itself still answers 200.
+
 ## Decisions
 
 - **Address register:** imitated inside the application. Confirmed by the
-  lecturer on 16.10.2026; X-Road is not part of the test assignment.
+  lecturer on 16.10.2026, and again on 23.10.2026 as enough for the X-Road
+  criterion; X-Road is not part of the test assignment.
 - **Edit and retire** (added 18.10.2026, required by the REST API manual): edit
   only while New; retire at any status, no reason needed, because who and when
   are recorded by the platform.
+- **Screens** (updated 30.10.2026, after session 4): the list is a master-detail
+  `ResourceList` with a filter card; loading, error and empty are shown
+  differently, so a failed load never looks like an empty list; dates are shown
+  as DD/MM/YYYY; the register's answer is shown live, like the example's
+  `/owner`, and never stored.
+- **Tests:** the lecturer strongly recommends more than two tests (23.10.2026).
+  This specification has 26 business tests.
+- **Presentation** (lecturer, 23.10.2026): on 26 or 27 November, 10 minutes
+  (15 at most). Show the task and the user story, the database tables, the API
+  and its methods (GET, POST, PUT, DELETE), the application running locally (or
+  a link so the lecturer can run it), and who did what. Groups that present live
+  need no peer review.
 - **Work split** (agreed 18.10.2026): Vlad: specification, business tests,
-  address register adapter and its imitation, screens. Villu: database, REST
-  API, and a usability review of the screens.
+  address register adapter, its imitation and the live address lookup, screens.
+  Villu: database, REST API, and a usability review of the screens.
