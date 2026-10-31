@@ -8,7 +8,6 @@ import {
   AppButtonSecondary,
   AppCard,
   AppLink,
-  AppStatusTag,
   AppTag,
   ResourceList,
   useAppNotification,
@@ -21,25 +20,12 @@ import {
   type AddressAnswer,
   type FaultCategory,
   type FaultReport,
-  type FaultStatus,
   type FaultSummaryRow,
 } from '../api';
 
 /** FAULTS.01 § UI: dates are shown as DD/MM/YYYY, times as DD/MM/YYYY HH:mm. */
 const formatDate = (value?: string) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
 const formatDateTime = (value?: string) => (value ? dayjs(value).format('DD/MM/YYYY HH:mm') : '—');
-
-/** Each status gets its own colour, from the library's shared tones. */
-const STATUS_TONE = {
-  NEW: 'info',
-  IN_PROGRESS: 'warning',
-  RESOLVED: 'success',
-  REJECTED: 'error',
-} as const;
-
-const StatusTag = ({ status }: { status: FaultStatus }) => (
-  <AppStatusTag tone={STATUS_TONE[status] ?? 'neutral'}>{FAULT_STATUS_LABELS[status] ?? status}</AppStatusTag>
-);
 
 interface AppliedFilters {
   status?: string;
@@ -167,7 +153,9 @@ export const FaultList = () => {
       key: 'status',
       title: 'Status',
       dataIndex: 'status',
-      render: (status: FaultStatus) => <StatusTag status={status} />,
+      render: (status: FaultReport['status']) => (
+        <AppTag>{FAULT_STATUS_LABELS[status] ?? status}</AppTag>
+      ),
     },
     {
       key: 'sysCreatedAt',
@@ -244,7 +232,7 @@ export const FaultList = () => {
           render: (report) => (
             <div style={{ display: 'grid', gap: 8 }}>
               <div>
-                <b>Report {report.id}</b> <StatusTag status={report.status} />
+                <b>Report {report.id}</b> · {FAULT_STATUS_LABELS[report.status] ?? report.status}
               </div>
               <div>Category: {categoryName(report.categoryCode)}</div>
               <div>
