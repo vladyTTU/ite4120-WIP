@@ -64,7 +64,30 @@ saved and marked "address not verified".
 | --- | --- |
 | `FAULTS_ADDRESSREGISTRY_URL=http://localhost:1 ./scripts/run-backend.sh` | `$env:FAULTS_ADDRESSREGISTRY_URL="http://localhost:1"; .\scripts\run-backend.ps1` |
 
-## 4. Look at the database
+## 4. Check every screen
+
+A full pass over the screens, one row per rule in FAULTS.01 § UI. Use it after
+any change to the screens or the API, and before the presentation.
+
+| # | Screen | Do | Expect |
+| --- | --- | --- | --- |
+| 1 | List | open <http://localhost:18640/faults> | the reports, newest first; the counts per category and status above the list |
+| 2 | List | type `ehitajate` in the search field | only reports with that address; letter case does not matter |
+| 3 | List | open the filter, choose status *New*, press Apply; then Clear all | only New reports; then all of them again |
+| 4 | List | click a row (not the report number) | the detail panel: category, address with its code, description, status, and the register's answer "via the address register (mock / X-Road)" |
+| 5 | List | open the column settings (gear) | *Date seen* is hidden at first and can be switched on; *Report no.* cannot be hidden or moved |
+| 6 | List | stop the backend and reload the page | "Could not load reports" with a Try again button, never an empty list |
+| 7 | Form | open **Report a problem** | Send report stays grey until category, address and description are filled |
+| 8 | Form | open the date field | dates are shown as DD/MM/YYYY; no future day can be picked |
+| 9 | Form | send the address `Nowhere 1, Tallinn` | the message "address not found in the address register"; nothing is saved |
+| 10 | Form | send a valid report at `Ehitajate tee 5, Tallinn` | a notification with the report number, then the report page: status New (blue), address code ADS-0001 |
+| 11 | Report page | Edit, change the description, Save | saved; the version in the sidebar goes up by one |
+| 12 | Report page | change the status to *In progress*, then press Edit | the tag turns green; Edit is refused with "a report can only be edited while it is New" |
+| 13 | Report page | choose *Rejected* | Change status stays grey until a reason is typed; once saved, the tag is red and the reason is in the history |
+| 14 | Report page | on a report moved from In progress to Resolved, use Undo last change with a reason | back to In progress; the history shows the change and the undo, marked "Undo" |
+| 15 | Report page | Remove report, and confirm | back to the list; the report is gone from the list and the counts |
+
+## 5. Look at the database
 
 The three FAULTS tables live in the schema `faults`: `fault_category`,
 `fault_report` and `status_change`. Their SQL is in
@@ -83,7 +106,7 @@ Or connect a database tool such as DBeaver: PostgreSQL, host `localhost`,
 port `18520`, database `animals`, user `animals`, password `animals` (local
 development values only).
 
-## 5. Stop and start clean
+## 6. Stop and start clean
 
 Press **Ctrl+C** in both terminals. To start again from an empty database,
 run `./scripts/reset-db.sh` (Windows: `.\scripts\reset-db.ps1`); the next
