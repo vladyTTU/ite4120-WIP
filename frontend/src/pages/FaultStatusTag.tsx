@@ -1,12 +1,23 @@
-import { AppTag } from '@helex/ui';
+import { AppStatusTag } from '@helex/ui';
 import { FAULT_STATUS_LABELS, type FaultStatus } from '../api';
 
 /**
- * A report's status as a tag — one component, so the list, the detail panel and
- * the report page show statuses the same way. FAULTS.01 § UI asks for
- * `AppStatusTag` with one colour per status; that switch happens here once the
- * library's exact tone names are confirmed.
+ * Each status with a tone from the library's status tones (Storybook ›
+ * AppStatusTag › All tones). The library version in this template has the
+ * appointment and encounter tones; the generic ones (success, warning…) are
+ * newer and not available here.
+ */
+const STATUS_TONE = {
+  NEW: 'planned',
+  IN_PROGRESS: 'in-progress',
+  RESOLVED: 'finished',
+  REJECTED: 'cancelled',
+} as const;
+
+/**
+ * A report's status as a coloured tag — one component, so the list, the detail
+ * panel and the report page show statuses the same way.
  */
 export const FaultStatusTag = ({ status }: { status: FaultStatus }) => (
-  <AppTag>{FAULT_STATUS_LABELS[status] ?? status}</AppTag>
+  <AppStatusTag tone={STATUS_TONE[status]}>{FAULT_STATUS_LABELS[status] ?? status}</AppStatusTag>
 );
