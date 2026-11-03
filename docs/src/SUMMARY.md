@@ -10,3 +10,4 @@
 - [Specification · ANIMALS.01](specifications/ANIMALS.01-animal-register.md)
 - [User story · FAULTS-US-001](user-stories/FAULTS-US-001.md)
 - [Specification · FAULTS.01](specifications/FAULTS.01-fault-reporting.md)
+- [How to run FAULTS](how-to-run-faults.md)
