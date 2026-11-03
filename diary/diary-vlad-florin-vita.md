@@ -28,11 +28,12 @@ Budget: 137 hours of independent work (6 ECTS = 156 h, of which 19 h contact stu
 | 28.10.2026 | 0.2 | Independent | Planned the remaining milestones to the presentation around my absence from 7 to 15 November: what I can do alone, and what waits for Villu | Map the remaining work and its dependencies against the dates | | | |
 | 30.10.2026 | 0.3 | Independent | Updated the specification after session 4: the screens (master-detail list with filters, separate loading, error and empty states, a date field that blocks future days, submit disabled until valid, DD/MM/YYYY dates), a live address lookup endpoint, business test 26, and the lecturer's answers on the presentation and peer review. Opened PR #6 for Villu's review. | Update the specification from my lecture notes and the session 4 demos | Suggested a separate red button for "Remove report"; the example's record page already has a delete action with confirmation | Used the built-in delete action in the specification | PR #6 |
 | 31.10.2026 | 1.3 | Independent | Synced our fork with the lecturer's latest template changes. Added a "How to run FAULTS" page, so the lecturer can start our application himself (PR #6). Built the first two FAULTS screens, the report list and the report form, ran them on my laptop, and changed two hint texts on the form. Opened PR #7 for Villu's review. Looked up the status tag component in Storybook to colour the statuses. | Write the "How to run" page and the two screens from the specification; guide me through testing them; colour the status tags | Guessed the library's tone names for the status colours ("warning" and others), so the automatic frontend check failed | Reverted to plain status tags until we can read the exact tone names | PR #6, PR #7 |
+| 03.11.2026 | 1.5 | Independent | Read the exact status tone names in Storybook. Added the third FAULTS screen, the report page (view, edit while New, remove, change status, undo with a reason, history, live address answer), and coloured status tags; chose red for Rejected. Recorded the colours in the specification. Protected main with a ruleset: changes go through pull requests, and the three automatic checks must pass. Added a 15-step screen checklist to the "How to run FAULTS" page. | Write the report page and the checklist from the specification; explain why "warning" was rejected; guide me through the GitHub ruleset | | | PR #6, PR #7 |
 
 ## Totals
 
 | | Hours |
 | --- | --- |
-| Independent, logged | 18.7 |
+| Independent, logged | 20.2 |
 | Contact, logged | 11.9 |
-| Independent, left of 137 | 118.3 |
+| Independent, left of 137 | 116.8 |
