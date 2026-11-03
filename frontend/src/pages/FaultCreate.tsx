@@ -54,8 +54,7 @@ export const FaultCreate = () => {
       })
       .then((created) => {
         notify.success('Report sent', `Your report number is ${created.id}`);
-        // FAULTS.01 says: then the report page. Until that page exists, back to the list.
-        navigate('/faults');
+        navigate(`/faults/${created.id}`); // FAULTS.01: then the report page
       })
       .catch((e: Error) => notify.error('Report not sent', e.message)) // 400 problem detail, word for word
       .finally(() => setSaving(false));

@@ -22,6 +22,7 @@ import {
   type FaultReport,
   type FaultSummaryRow,
 } from '../api';
+import { FaultStatusTag } from './FaultStatusTag';
 
 /** FAULTS.01 § UI: dates are shown as DD/MM/YYYY, times as DD/MM/YYYY HH:mm. */
 const formatDate = (value?: string) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
@@ -153,9 +154,7 @@ export const FaultList = () => {
       key: 'status',
       title: 'Status',
       dataIndex: 'status',
-      render: (status: FaultReport['status']) => (
-        <AppTag>{FAULT_STATUS_LABELS[status] ?? status}</AppTag>
-      ),
+      render: (status: FaultReport['status']) => <FaultStatusTag status={status} />,
     },
     {
       key: 'sysCreatedAt',
@@ -232,7 +231,7 @@ export const FaultList = () => {
           render: (report) => (
             <div style={{ display: 'grid', gap: 8 }}>
               <div>
-                <b>Report {report.id}</b> · {FAULT_STATUS_LABELS[report.status] ?? report.status}
+                <b>Report {report.id}</b> <FaultStatusTag status={report.status} />
               </div>
               <div>Category: {categoryName(report.categoryCode)}</div>
               <div>
