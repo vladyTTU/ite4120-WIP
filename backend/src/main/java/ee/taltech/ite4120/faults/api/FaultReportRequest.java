@@ -2,6 +2,7 @@
 package ee.taltech.ite4120.faults.api;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
@@ -18,6 +19,7 @@ public class FaultReportRequest {
     @Size(max = 1000)
     private String description;
 
+    @PastOrPresent(message = "observedOn must not be in the future")
     private LocalDate observedOn;
 
     public String getCategoryCode() {

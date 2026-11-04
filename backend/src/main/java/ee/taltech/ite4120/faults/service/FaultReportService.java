@@ -11,6 +11,10 @@ import org.helex.commons.exception.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class FaultReportService {
 
@@ -24,6 +28,7 @@ public class FaultReportService {
         this.addressRegistry = addressRegistry;
     }
 
+    // Find an active fault report by ID.
     public FaultReport require(Long id) {
         FaultReport report = repository.load(id);
 
@@ -35,6 +40,88 @@ public class FaultReportService {
         return report;
     }
 
+    // List reports with filtering, sorting and pagination.
+    public Map<String, Object> list(
+            String status,
+            String categoryCode,
+            String addressContains,
+            String sort,
+            int page,
+            int size) {
+
+        if (page < 0) {
+            throw new ApiClientException(
+                    "page must not be negative");
+        }
+
+        if (size < 1 || size > 100) {
+            throw new ApiClientException(
+                    "size must be between 1 and 100");
+        }
+
+        List<FaultReport> reports = repository.list(
+                status,
+                categoryCode,
+                addressContains,
+                sort,
+                page,
+                size);
+
+        Long total = repository.count(
+                status,
+                categoryCode,
+                addressContains);
+
+        return Map.of(
+                "content", reports,
+                "page", page,
+                "size", size,
+                "totalElements", total,
+                "totalPages", (total + size - 1) / size);
+    }
+
+    // Summary of active reports grouped by status and category.
+    public Map<String, Object> summary() {
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        Map<String, Long> byCategory = new LinkedHashMap<>();
+
+        long total = 0;
+        int page = 0;
+        int size = 100;
+
+        while (true) {
+            List<FaultReport> reports = repository.list(
+                    null, null, null, "newest", page, size);
+
+            for (FaultReport report : reports) {
+                total++;
+
+                byStatus.merge(
+                        report.getStatus(), 1L, Long::sum);
+
+                byCategory.merge(
+                        report.getCategoryCode(), 1L, Long::sum);
+            }
+
+            if (reports.size() < size) {
+                break;
+            }
+
+            page++;
+        }
+
+        return Map.of(
+                "total", total,
+                "byStatus", byStatus,
+                "byCategory", byCategory);
+    }
+
+    // Return all available fault category codes.
+    public List<String> listCategories() {
+        return repository.listCategories();
+    }
+
+    // Create a new fault report.
     @Transactional
     public FaultReport create(FaultReport report) {
         validateCategory(report);
@@ -44,6 +131,7 @@ public class FaultReportService {
         return require(id);
     }
 
+    // Update a report only while its status is NEW.
     @Transactional
     public FaultReport update(Long id, FaultReport report) {
         FaultReport existing = require(id);
@@ -51,7 +139,7 @@ public class FaultReportService {
         if (!"NEW".equals(existing.getStatus())) {
             throw new ConflictException(
                     "fault report",
-                    "only NEW fault reports can be edited");
+                    "a report can only be edited while it is New");
         }
 
         validateCategory(report);
@@ -62,12 +150,13 @@ public class FaultReportService {
         if (!repository.update(report)) {
             throw new ConflictException(
                     "fault report",
-                    "fault report cannot be edited");
+                    "a report can only be edited while it is New");
         }
 
         return require(id);
     }
 
+    // Soft-delete a fault report.
     @Transactional
     public void retire(Long id) {
         if (!repository.retire(id)) {
@@ -76,6 +165,7 @@ public class FaultReportService {
         }
     }
 
+    // Validate that the category exists.
     private void validateCategory(FaultReport report) {
         if (!repository.categoryExists(report.getCategoryCode())) {
             throw new ApiClientException(
@@ -83,6 +173,7 @@ public class FaultReportService {
         }
     }
 
+    // Validate the address using the current adapter.
     private void validateAddress(FaultReport report) {
         AddressInfo address =
                 addressRegistry.lookup(report.getAddressText());
