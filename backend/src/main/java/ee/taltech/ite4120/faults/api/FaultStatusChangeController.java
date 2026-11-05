@@ -21,7 +21,7 @@ public class FaultStatusChangeController {
         this.service = service;
     }
 
-    // POST: Change the status of a fault report.
+    // POST: Change a report's status.
     @PostMapping
     public FaultReport changeStatus(
             @PathVariable Long reportId,
@@ -31,7 +31,7 @@ public class FaultStatusChangeController {
                 reportId, request.toStatus(), request.note());
     }
 
-    // GET: View the report's status-change history.
+    // GET: View status-change history.
     @GetMapping
     public List<Map<String, Object>> history(
             @PathVariable Long reportId) {
@@ -39,8 +39,21 @@ public class FaultStatusChangeController {
         return service.history(reportId);
     }
 
+    // POST: Undo latest status change with a required reason.
+    @PostMapping("/undo")
+    public FaultReport undoLastChange(
+            @PathVariable Long reportId,
+            @Valid @RequestBody UndoRequest request) {
+
+        return service.undoLastChange(reportId, request.note());
+    }
+
     public record StatusChangeRequest(
             @NotBlank String toStatus,
             String note) {
+    }
+
+    public record UndoRequest(
+            @NotBlank String note) {
     }
 }

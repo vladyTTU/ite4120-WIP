@@ -57,4 +57,25 @@ public class FaultStatusChangeRepository extends BaseRepository {
                 """,
                 reportId);
     }
+
+    // Find the latest active status change for undo.
+    public Map<String, Object> latestChange(Long reportId) {
+
+        List<Map<String, Object>> changes =
+                jdbcTemplate.queryForList("""
+                        select id,
+                               report_id as "reportId",
+                               from_status as "fromStatus",
+                               to_status as "toStatus",
+                               note
+                          from faults.status_change
+                         where report_id = ?
+                           and sys_status = 'A'
+                         order by id desc
+                         limit 1
+                        """,
+                        reportId);
+
+        return changes.isEmpty() ? null : changes.get(0);
+    }
 }
