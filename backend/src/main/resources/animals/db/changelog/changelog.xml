@@ -22,6 +22,8 @@
 
   <!-- The worked example component. -->
   <include file="animals/db/changelog/animals/changelog.xml"/>
+<!-- Our FAULTS component -->
+<include file="faults/db/changelog/changelog.xml"/>
 
   <!-- A component that may be ABSENT from this checkout: the lecturer's private
        library module lives beside the template, gitignored (see .gitignore).
