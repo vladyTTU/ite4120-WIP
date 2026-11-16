@@ -3,11 +3,14 @@ package ee.taltech.ite4120.faults.service;
 
 import ee.taltech.ite4120.faults.addressregistry.AddressInfo;
 import ee.taltech.ite4120.faults.addressregistry.AddressRegistryAdapter;
+import ee.taltech.ite4120.faults.addressregistry.AddressRegistryException;
 import ee.taltech.ite4120.faults.model.FaultReport;
 import ee.taltech.ite4120.faults.repository.FaultReportRepository;
 import org.helex.commons.exception.ApiClientException;
 import org.helex.commons.exception.ConflictException;
 import org.helex.commons.exception.NotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +20,8 @@ import java.util.Map;
 
 @Service
 public class FaultReportService {
+
+    private static final Logger log = LoggerFactory.getLogger(FaultReportService.class);
 
     private final FaultReportRepository repository;
     private final AddressRegistryAdapter addressRegistry;
@@ -125,7 +130,7 @@ public class FaultReportService {
     @Transactional
     public FaultReport create(FaultReport report) {
         validateCategory(report);
-        validateAddress(report);
+        checkAddress(report);
 
         Long id = repository.insert(report);
         return require(id);
@@ -143,7 +148,15 @@ public class FaultReportService {
         }
 
         validateCategory(report);
-        validateAddress(report);
+
+        // FAULTS.01: the address is checked again only when its text changed.
+        String newText = trimmed(report.getAddressText());
+        if (newText.equals(existing.getAddressText())) {
+            report.setAddressText(existing.getAddressText());
+            report.setAddressCode(existing.getAddressCode());
+        } else {
+            checkAddress(report);
+        }
 
         report.setId(id);
 
@@ -173,17 +186,46 @@ public class FaultReportService {
         }
     }
 
-    // Validate the address using the current adapter.
-    private void validateAddress(FaultReport report) {
-        AddressInfo address =
-                addressRegistry.lookup(report.getAddressText());
+    // The address register's answer for a report's address, asked live.
+    // Nothing is stored. When the register cannot be reached,
+    // AddressRegistryException goes to the caller, which answers 502.
+    public AddressInfo liveAddress(Long id) {
+        FaultReport report = require(id);
+        AddressInfo address = addressRegistry.lookup(report.getAddressText());
 
         if (address == null) {
-            throw new ApiClientException(
-                    "unknown address: " + report.getAddressText());
+            throw new NotFoundException(
+                    "address not found in the address register");
         }
 
-        report.setAddressText(address.getAddressText());
-        report.setAddressCode(address.getAddressCode());
+        return address;
+    }
+
+    // Check the address in the address register (FAULTS.01 § Address register).
+    // Found: keep the resident's text and store the register's code.
+    // Not found: refuse the report.
+    // Register not reachable: fail open, save without a code ("address not verified").
+    private void checkAddress(FaultReport report) {
+        String text = trimmed(report.getAddressText());
+        report.setAddressText(text);
+
+        try {
+            AddressInfo address = addressRegistry.lookup(text);
+
+            if (address == null) {
+                throw new ApiClientException(
+                        "address not found in the address register");
+            }
+
+            report.setAddressCode(address.getAddressCode());
+        } catch (AddressRegistryException e) {
+            log.warn("Address register not reachable; report saved without an address code: {}",
+                    e.getMessage());
+            report.setAddressCode(null);
+        }
+    }
+
+    private static String trimmed(String text) {
+        return text == null ? "" : text.trim();
     }
 }
