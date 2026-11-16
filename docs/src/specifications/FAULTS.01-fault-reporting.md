@@ -84,7 +84,8 @@ Paths name things (categories, reports, status changes) and the HTTP method
 says what happens. The one exception is `/status-changes/undo`, which names
 the action. All endpoints require `Authorization: Bearer <user>` (mock auth);
 without it, 401. Every error is `application/problem+json`. Every endpoint is
-listed in Swagger, generated from the controllers, live at `/swagger-ui.html`.
+documented in Swagger in the section **Faults**, with a summary and its
+failure answers (`@Operation`, `@ApiResponse`), live at `/swagger-ui.html`.
 
 **Request bodies.**
 Create and edit: `{ "categoryCode", "addressText", "description", "observedOn" }`.

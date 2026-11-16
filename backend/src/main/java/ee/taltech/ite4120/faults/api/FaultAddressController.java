@@ -1,5 +1,6 @@
 package ee.taltech.ite4120.faults.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import ee.taltech.ite4120.faults.addressregistry.AddressInfo;
 import ee.taltech.ite4120.faults.addressregistry.AddressRegistryException;
 import ee.taltech.ite4120.faults.service.FaultReportService;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * answer is shown on the screen and never stored.
  */
 @RestController
+@Tag(name = "Faults", description = "FAULTS: public infrastructure fault reporting (FAULTS.01)")
 @RequestMapping("/api/faults/reports/{id}/address")
 public class FaultAddressController {
 
