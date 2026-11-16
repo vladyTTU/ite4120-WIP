@@ -70,7 +70,8 @@ public class HttpAddressRegistryAdapter implements AddressRegistryAdapter {
             return new AddressInfo(wire.code(), wire.address());
         } catch (IOException e) {
             // Includes no answer within 2 seconds and a refused connection.
-            throw new AddressRegistryException("address register not reachable: " + e.getMessage(), e);
+            String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            throw new AddressRegistryException("address register not reachable: " + reason, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new AddressRegistryException("address register call interrupted", e);

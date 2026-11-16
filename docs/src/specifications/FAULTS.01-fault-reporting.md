@@ -59,9 +59,10 @@ note starts with `UNDO: ` is an undo. Only the last row can be undone, and only
 if it is an ordinary move: an undo cannot be undone, and neither can the demo
 data's first row (empty → NEW).
 
-Changesets (merged with PR #4): `faults-schema.sql`, `01-fault-category.sql`,
-`02-fault-report.sql`, `03-status-change.sql`, `90-demo-data.sql`
-(`context:demo`).
+Changesets: `faults-schema.sql`, `01-fault-category.sql`,
+`02-fault-report.sql`, `03-status-change.sql`, and the demo data
+`90-demo-data.sql` and `91-demo-reports.sql` (`context:demo`): one report in
+every status, with its history, and one without an address code.
 
 ## API  *(→ session 3)*
 
@@ -379,7 +380,12 @@ knows" means the address is one of the four canned addresses above.
   by `UNDO: ` in the note, and no history row on create. The messages above
   are the ones the API sends.
 - **Tests:** the lecturer strongly recommends more than two tests (23.10.2026).
-  This specification has 26 business tests.
+  This specification has 26 business tests. 22 of them run automatically on
+  every pull request in `FaultBusinessRulesIT` (tests 1, 4, 6 to 24 and 26,
+  against a real PostgreSQL). `HttpAddressRegistryAdapterTest` tests the
+  register call itself: found, not found, a fault, no answer within 2 seconds,
+  and nothing listening. Tests 2, 3, 5 and 25 concern the HTTP layer (request
+  validation and sign-in) and are not automated yet.
 - **Presentation** (lecturer, 23.10.2026): on 26 or 27 November, 10 minutes
   (15 at most). Show the task and the user story, the database tables, the API
   and its methods (GET, POST, PUT, DELETE), the application running locally (or
