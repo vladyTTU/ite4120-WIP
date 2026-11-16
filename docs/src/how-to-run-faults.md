@@ -42,8 +42,8 @@ in automatically as a mock user.
 
 ## 3. Try it in five minutes
 
-1. Open <http://localhost:18640/faults>. The list shows the demo reports and
-   the counts: the total, per status and per category.
+1. Open <http://localhost:18640/faults>. The list shows the demo reports, one
+   in every status, and the counts: the total, per status and per category.
 2. Click **Report a problem**. Choose *Streetlight*, type the address
    `Ehitajate tee 5, Tallinn` and a short description, and send it. The new
    report opens with status *New* and the address code *ADS-0001* from the
