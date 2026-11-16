@@ -64,6 +64,9 @@ saved and marked "address not verified".
 | --- | --- |
 | `FAULTS_ADDRESSREGISTRY_URL=http://localhost:1 ./scripts/run-backend.sh` | `$env:FAULTS_ADDRESSREGISTRY_URL="http://localhost:1"; .\scripts\run-backend.ps1` |
 
+Afterwards, stop the backend and close that terminal window, so the next start
+uses the imitated register again.
+
 ## 4. Check every screen
 
 A full pass over the screens, one row per rule in FAULTS.01 § UI. Use it after

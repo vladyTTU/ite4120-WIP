@@ -171,9 +171,10 @@ ignoring letter case and outer spaces, against four canned addresses:
 | Narva mnt 7, Tallinn | ADS-0004 |
 
 The codes are made up for the course; they are not real address register
-codes. The adapter calls the URL in `faults.address-registry.url` (locally
-`http://localhost:18440/mock-registry`). To simulate an unreachable register,
-point that URL at a port where nothing listens.
+codes. The adapter, `HttpAddressRegistryAdapter`, calls the URL in
+`faults.address-registry.url` (locally `http://localhost:18440/mock-registry`)
+over HTTP and gives the register 2 seconds to answer. To simulate an
+unreachable register, point that URL at a port where nothing listens.
 
 **Failure policy: fail open.** An unreachable register never blocks a report.
 Reason: a fault report is a notice, not a decision about a person; losing the
