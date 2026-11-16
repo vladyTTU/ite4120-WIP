@@ -7,3 +7,7 @@ auth:
 animals:
   owner-registry:
     mock-server: true      # this app serves /mock-registry itself — works offline
+
+faults:
+  address-registry:
+    mock-server: true      # this app serves /mock-registry/addresses itself — works offline
