@@ -3,6 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AnimalList } from './pages/AnimalList';
 import { AnimalCreate } from './pages/AnimalCreate';
 import { AnimalDetail } from './pages/AnimalDetail';
+import { FaultList } from './pages/FaultList';
+import { FaultCreate } from './pages/FaultCreate';
+import { FaultDetail } from './pages/FaultDetail';
 
 /**
  * Components that may be ABSENT from this checkout register their routes by
@@ -21,6 +24,9 @@ export const App = () => (
     <Route path="/animals" element={<AnimalList />} />
     <Route path="/animals/new" element={<AnimalCreate />} />
     <Route path="/animals/:id" element={<AnimalDetail />} />
+    <Route path="/faults" element={<FaultList />} />
+    <Route path="/faults/new" element={<FaultCreate />} />
+    <Route path="/faults/:id" element={<FaultDetail />} />
     {componentRoutes}
   </Routes>
 );
