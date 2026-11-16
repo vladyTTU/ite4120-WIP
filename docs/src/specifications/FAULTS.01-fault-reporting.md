@@ -32,9 +32,9 @@ platform `sys_*` columns.
 | | `sys_*` | — | platform columns, trigger-managed; `sys_created_by` = the reporter |
 | `faults.status_change` | `id` PK | bigint | from `core.seq_id` |
 | | `report_id` | bigint | required; FK → `fault_report` |
-| | `from_status` | text | empty for the first entry |
+| | `from_status` | text | the status before the change; empty only for the demo data's first entry |
 | | `to_status` | text | required; same four values as `status` |
-| | `note` | text | optional, ≤500; **required when `to_status` is REJECTED** (checked by the database too) **and for a correction** (checked by the service) |
+| | `note` | text | optional, ≤500; **required when `to_status` is REJECTED** (checked by the database too) **and for an undo** (checked by the API) |
 | | `sys_*` | — | platform columns; `sys_created_at` / `sys_created_by` = when and who |
 
 Three tables in schema `faults`, two foreign keys. `fault_category` is a
@@ -51,57 +51,64 @@ and every read filters on A.
 | RESOLVED | none (final) |
 | REJECTED | none (final) |
 
-Every move adds one `status_change` row. A **correction** undoes the last
-ordinary move: the report goes back to the status it came from, and a new row
-records the move back with its reason in `note`. A correction is recognised as
-a row whose pair (`from_status`, `to_status`) is not in the table above. Only
-the last row can be corrected, and only if it is an ordinary move: the first
-row (empty → NEW) and a correction cannot be corrected.
+Every move adds one `status_change` row. A new report has no rows yet: its
+history starts with the first move. An **undo** reverses the last ordinary
+move: the report goes back to the status it came from, and a new row records
+the move back, with the reason in `note` after the marker `UNDO: `. A row whose
+note starts with `UNDO: ` is an undo. Only the last row can be undone, and only
+if it is an ordinary move: an undo cannot be undone, and neither can the demo
+data's first row (empty → NEW).
 
-Changesets (done, on branch `faults-liquibase-api`): `faults-schema.sql`,
-`01-fault-category.sql`, `02-fault-report.sql`, `03-status-change.sql`,
-`90-demo-data.sql` (`context:demo`). This update needs no database change.
+Changesets (merged with PR #4): `faults-schema.sql`, `01-fault-category.sql`,
+`02-fault-report.sql`, `03-status-change.sql`, `90-demo-data.sql`
+(`context:demo`).
 
 ## API  *(→ session 3)*
 
 | Method + path | Does | Failure answers |
 | --- | --- | --- |
-| `GET /api/faults/categories` | the reference list | — |
-| `GET /api/faults/reports` | paged search: `status`, `categoryCode`, `addressContains`, `limit`, `offset`, `sort`; newest first by default | 400 unknown sort key or filter value |
+| `GET /api/faults/categories` | the reference list, as codes in alphabetical order | — |
+| `GET /api/faults/reports` | paged search: `status`, `categoryCode`, `addressContains`, `page`, `size`, `sort`; newest first by default | 400 page or size out of range |
 | `GET /api/faults/reports/{id}` | one active report | 404 |
-| `POST /api/faults/reports` | create a report; checks the address; adds the first history row; answers **201 + Location** | 400 |
+| `POST /api/faults/reports` | create a report; checks the address; answers **201 + Location** with the report | 400 |
 | `PUT /api/faults/reports/{id}` | edit category, address, description and date seen; **only while NEW**; the address is checked again if it changed; answers 200 with the report | 400 · 404 · 409 not New |
 | `DELETE /api/faults/reports/{id}` | retire (soft delete), at any status; answers **204** | 404 |
 | `GET /api/faults/reports/{id}/status-changes` | the status history, oldest first | 404 |
-| `POST /api/faults/reports/{id}/status-changes` | move the report to a new status; answers **201** with the new history row | 400 · 404 · 409 move not allowed |
-| `POST /api/faults/reports/{id}/corrections` | undo the last status change, with a required note; answers **201** with the new history row | 400 · 404 · 409 nothing to correct |
-| `GET /api/faults/reports/summary` | count of active reports per category and status | — |
+| `POST /api/faults/reports/{id}/status-changes` | move the report to a new status; answers **200** with the updated report | 400 · 404 · 409 move not allowed |
+| `POST /api/faults/reports/{id}/status-changes/undo` | undo the last status change, with a required note; answers **200** with the updated report | 400 · 404 · 409 nothing to undo |
+| `GET /api/faults/reports/summary` | count of active reports: in total, by status and by category | — |
 | `GET /api/faults/reports/{id}/address` | the address register's answer for the report's address, asked live through the adapter; nothing is stored | 404 no active report, or the register does not know the address · 502 register not reachable |
 
-Paths name things (reports, status changes, corrections), never actions; the
-HTTP method says what happens. All endpoints require
-`Authorization: Bearer <user>` (mock auth); without it, 401. Every error is
-`application/problem+json`. Every endpoint is documented in Swagger
-(`@Operation`, `@ApiResponse` for each failure answer), live at `/swagger-ui.html`.
+Paths name things (categories, reports, status changes) and the HTTP method
+says what happens. The one exception is `/status-changes/undo`, which names
+the action. All endpoints require `Authorization: Bearer <user>` (mock auth);
+without it, 401. Every error is `application/problem+json`. Every endpoint is
+listed in Swagger, generated from the controllers, live at `/swagger-ui.html`.
 
 **Request bodies.**
 Create and edit: `{ "categoryCode", "addressText", "description", "observedOn" }`.
 Status and `sys*` fields are never accepted on input; they are ignored.
 Status change: `{ "toStatus": "REJECTED", "note": "Private property, not municipal" }`.
-Correction: `{ "note": "Marked resolved by mistake" }`.
+Undo: `{ "note": "Marked resolved by mistake" }`.
 
 **Answers.**
-A history row: `{ "id", "reportId", "fromStatus", "toStatus", "note", "correction", "sysCreatedAt", "sysCreatedBy" }`,
-where `correction` is true for a correction.
-The status history uses the platform list shape `{ data, meta }`.
-The summary is a list of `{ "categoryCode", "status", "count" }`, one item per
-combination that has at least one active report.
+The categories: a list of codes, `[ "OTHER", "PAVEMENT", … ]`. The screens show
+a name made from the code (ROAD_SURFACE → "Road surface"), the same as the
+`name` column.
+A report: `{ "id", "categoryCode", "addressText", "addressCode", "description", "observedOn", "status", "sysCreatedAt", "sysCreatedBy", … }`.
+The list: one page, `{ "content": [reports], "page", "size", "totalElements", "totalPages" }`.
+The status history: a list of rows, oldest first, each
+`{ "id", "reportId", "fromStatus", "toStatus", "note", "createdAt", "createdBy" }`.
+The summary: `{ "total": 3, "byStatus": { "NEW": 2, "RESOLVED": 1 }, "byCategory": { "STREETLIGHT": 2, "ROAD_SURFACE": 1 } }`,
+with only the statuses and categories that have at least one active report.
 The live address answer is `{ "address", "code" }`, as the register sends it.
 
-**List rules.** Sort keys: `id`, `observedOn`, `status`, `categoryCode`
-(`sort=-id` is the default). `status` must be one of the four values and
-`categoryCode` must be on the reference list; anything else is a 400.
-`addressContains` matches part of the address, ignoring letter case.
+**List rules.** `page` starts at 0; `size` is 1 to 100, 20 by default (the
+screen asks for 50). Sort values: `newest` (the default), `oldest`,
+`observedOnAsc`, `observedOnDesc`; any other value sorts newest first.
+`status` and `categoryCode` filter on the exact value, so an unknown value
+finds nothing. `addressContains` matches part of the address, ignoring letter
+case.
 
 **Messages** (the `detail` of the problem document):
 
@@ -110,21 +117,25 @@ The live address answer is `{ "address", "code" }`, as the register sends it.
 | empty description | 400 | `description: must not be blank` |
 | description over 1000 characters | 400 | `description: size must be between 0 and 1000` |
 | unknown category | 400 | `unknown categoryCode: POTHOLE` |
-| date seen in the future | 400 | `observedOn must not be in the future` |
+| date seen in the future | 400 | `observedOn: observedOn must not be in the future` |
 | address not in the register | 400 | `address not found in the address register` |
-| unknown status value | 400 | `unknown status: OPEN` |
+| page below 0 | 400 | `page must not be negative` |
+| size below 1 or over 100 | 400 | `size must be between 1 and 100` |
+| unknown status value | 400 | `invalid status` |
 | status change without `toStatus` | 400 | `toStatus: must not be blank` |
-| unknown sort key | 400 | `unknown sort key; sortable: categoryCode, id, observedOn, status` |
-| rejection without a note | 400 | `note is required when rejecting` |
-| correction without a note | 400 | `note is required for a correction` |
+| rejection without a note | 400 | `rejection requires an explanation` |
+| undo without a note | 400 | `note: must not be blank` |
 | no active report with that id | 404 | `fault report 1234 not found` |
 | edit after work started | 409 | `a report can only be edited while it is New` |
-| move not in the status table | 409 | `status cannot change from RESOLVED to IN_PROGRESS` |
-| nothing to correct | 409 | `nothing to correct` |
+| move to the status the report already has | 409 | `report already has this status` |
+| move not in the status table | 409 | `status transition is not allowed` |
+| undo with no history | 409 | `no status change available to undo` |
+| undo when the last row is already an undo | 409 | `latest status change is already an undo` |
+| undo of the demo data's first row | 409 | `previous status is unavailable` |
 | live address lookup, register not reachable | 502 | `address register not reachable` |
 
 The messages that start with a field name (`description: ...`, `toStatus: ...`)
-are the platform's Bean Validation defaults, so they need no custom text.
+come from the platform's Bean Validation, which puts the field name first.
 
 ### Address register  *(the X-Road part)*
 
@@ -186,11 +197,11 @@ shown as DD/MM/YYYY and times as DD/MM/YYYY HH:mm; the API always uses ISO dates
 
 | Screen | Element | Component | Rules |
 | --- | --- | --- | --- |
-| Report list `/faults` | table | `ResourceList` | columns: report number (locked, an `AppLink` to the report page), category (`AppTag`), address, status (`AppStatusTag`), reported on, date seen (hidden by default), "not verified" mark; search by address; newest first |
-| | filter | `ResourceList` filter card | status `Select` and category `Select` (options from `/categories`); Apply filters the list; Clear all resets it |
+| Report list `/faults` | table | `ResourceList` | columns: report number (locked, an `AppLink` to the report page), category (`AppTag`), address, status (`AppStatusTag`), reported on, date seen (hidden by default), "not verified" mark; search by address; newest first, the first 50 |
+| | filter | `ResourceList` filter card | status `Select` and category `Select` (options from `/categories`, shown by name); Apply filters the list; Clear all resets it |
 | | report button | `AppButtonPrimary` | "Report a problem", opens the form |
 | | detail panel | `ResourceList.detailView` | category, address, description, date seen, status; the register's answer from `/address`, marked "via the address register (mock / X-Road)"; silently left out when the register fails |
-| | summary | `AppCard` | counts per category and status from `/summary` |
+| | summary | `AppCard` | from `/summary`: the total, the count per status and the count per category |
 | | loading, error, empty | `ResourceList` states | while loading: the list's loading indicator; on error: the problem text in a notification and "Could not load reports" in place of the table, never an empty list; with no reports: "No reports yet". The summary card follows the same rule. |
 | Report form `/faults/new` | form | `AppCard` | title "Report a problem" |
 | | category | `Select` | required; options from `/categories` |
@@ -202,9 +213,9 @@ shown as DD/MM/YYYY and times as DD/MM/YYYY HH:mm; the API always uses ISO dates
 | Report page `/faults/{id}` | view / edit | `ResourceForm` + `useDataController` | sections Report (category, address, description, date seen) and Status (status, history, change status, undo); Edit only while New, Save is `PUT`, Cancel restores; "Remove report" is the form's delete action, the soft `DELETE`, with the confirmation "Remove this report? It is hidden from all lists and stays in the database."; on 204 back to the list with a notification; the buttons stay visible while scrolling |
 | | address | `ResourceForm` field, view mode | the address as typed; "address not verified" when there is no code; the register's answer from `/address`, left out when the register fails; the page never depends on it |
 | | status | `AppStatusTag` | the tag shows our label; the tone sets the colour: NEW `planned` (blue), IN_PROGRESS `in-progress` (green), RESOLVED `finished` (neutral), REJECTED `noshow` (red). The library version in this template has only these appointment and encounter tones, not the newer generic ones such as `warning`. The same tag is used in the list, the detail panel and the report page. |
-| | status history | `AppCard` | from `/status-changes`, oldest first: from, to, note, who, when (`AppTimestamp`); corrections marked "Undo" |
+| | status history | `ResourceForm` section Status | from `/status-changes`, oldest first: from, to, note, who, when (DD/MM/YYYY HH:mm); undo rows marked with an "Undo" `AppTag`, the note shown without the `UNDO: ` marker; "No changes yet" while empty |
 | | change status | `Select` + `Input.TextArea` + `AppButtonPrimary` | offers only the allowed next statuses; note required for Rejected; a 409 text shown word for word |
-| | undo last change | `AppButtonSecondary` + `Input.TextArea` | shown only when the last row is an ordinary move; note required; asks for confirmation first; sends `POST /corrections` |
+| | undo last change | `AppButtonSecondary` + `Input.TextArea` + `Popconfirm` | shown only when the last row is an ordinary move; note required; asks for confirmation first; sends `POST /status-changes/undo` |
 | | metadata | `ResourceForm.sidebar` — `AppCard` of `FieldItem`s | created at / by, modified at / by, version; read-only |
 
 ## Business tests
@@ -218,8 +229,7 @@ knows" means the address is one of the four canned addresses above.
    Given category STREETLIGHT, address "Ehitajate tee 5, Tallinn" and a
    description, when `resident1` submits the report, then it is saved (201,
    `Location: /api/faults/reports/{id}`), its status is NEW, its address code is
-   ADS-0001, it was created by `resident1`, and its history has one row: from
-   empty to NEW, by `resident1`.
+   ADS-0001, it was created by `resident1`, and its status history is empty.
 2. **A report needs a description.**
    Given a description that is empty or only spaces, when the report is
    submitted, then it is refused (400) with "description: must not be blank",
@@ -254,19 +264,21 @@ knows" means the address is one of the four canned addresses above.
    Given three active reports (STREETLIGHT NEW, STREETLIGHT RESOLVED,
    ROAD_SURFACE NEW) and one retired STREETLIGHT NEW report, when the list is
    asked for with status NEW and category STREETLIGHT, then exactly one report
-   comes back and `meta.total` is 1. Without filters, three reports come back,
-   newest first.
+   comes back and `totalElements` is 1. Without filters, three reports come
+   back, newest first.
 10. **Address search ignores letter case.**
     Given a report at "Ehitajate tee 5, Tallinn", when the list is searched with
     `addressContains=EHITAJATE`, then that report is found.
-11. **Unknown sort keys and filter values are refused.**
-    When the list is asked for with `sort=colour`, then it is refused (400) with
-    "unknown sort key; sortable: categoryCode, id, observedOn, status". With
-    `status=OPEN`, it is refused (400) with "unknown status: OPEN".
+11. **The list comes in pages, within limits.**
+    Given the reports of test 9, when the list is asked for with `size=2`, then
+    two reports come back, `totalElements` is 3 and `totalPages` is 2; `page=1`
+    gives the third. With `page=-1`, it is refused (400) with "page must not be
+    negative"; with `size=101`, it is refused (400) with "size must be between 1
+    and 100".
 12. **The summary counts active reports only.**
-    Given the reports of test 9, when the summary is asked for, then it shows
-    STREETLIGHT / NEW 1, STREETLIGHT / RESOLVED 1 and ROAD_SURFACE / NEW 1, and
-    nothing else. The retired report is not counted.
+    Given the reports of test 9, when the summary is asked for, then the total
+    is 3, by status NEW 2 and RESOLVED 1, by category STREETLIGHT 2 and
+    ROAD_SURFACE 1. The retired report is not counted.
 
 ### Editing and retiring
 
@@ -293,35 +305,36 @@ knows" means the address is one of the four canned addresses above.
 
 17. **A report moves forward, and every move is recorded.**
     Given a NEW report created by `resident1`, when `officer1` sets it to
-    IN_PROGRESS and then to RESOLVED, then each change answers 201, the status is
-    RESOLVED, and the history has three rows, oldest first: empty → NEW by
-    `resident1`, NEW → IN_PROGRESS by `officer1`, IN_PROGRESS → RESOLVED by
-    `officer1`.
+    IN_PROGRESS and then to RESOLVED, then each change answers 200 with the
+    report, the status is RESOLVED, and the history has two rows, oldest first:
+    NEW → IN_PROGRESS by `officer1`, IN_PROGRESS → RESOLVED by `officer1`.
 18. **A status never skips, never goes back, and final statuses are final.**
     Given a RESOLVED report, when it is set to IN_PROGRESS, then the change is
-    refused (409) with "status cannot change from RESOLVED to IN_PROGRESS", and
-    the status stays RESOLVED. The same happens for a NEW report set to RESOLVED
-    (work must start first), a NEW report set to NEW, and a REJECTED report set
-    to any of the four statuses.
+    refused (409) with "status transition is not allowed", and the status stays
+    RESOLVED. The same happens for a NEW report set to RESOLVED (work must start
+    first) and a REJECTED report set to NEW, IN_PROGRESS or RESOLVED. A report
+    set to the status it already has is refused (409) with "report already has
+    this status".
 19. **A rejection needs a reason.**
     Given a NEW report, when `officer1` sets it to REJECTED without a note, then
-    the change is refused (400) with "note is required when rejecting". With the
+    the change is refused (400) with "rejection requires an explanation". With the
     note "Private property, not municipal", it is accepted and the note appears
     in the history.
 20. **An unknown status is refused.**
     Given a NEW report, when it is set to OPEN, then the change is refused (400)
-    with "unknown status: OPEN".
+    with "invalid status".
 21. **A mistaken change can be undone, and the undo is kept.**
     Given a report moved from IN_PROGRESS to RESOLVED by mistake, when
     `officer1` undoes the last change with the note "Marked resolved by
-    mistake", then the answer is 201, the status is IN_PROGRESS again, and the
-    history shows both the change and the undo, with `correction` true on the
-    undo. Without a note, the undo is refused (400) with "note is required for a
-    correction".
+    mistake", then the answer is 200, the status is IN_PROGRESS again, and the
+    history shows both the change and the undo; the undo row goes from RESOLVED
+    to IN_PROGRESS with the note "UNDO: Marked resolved by mistake". Without a
+    note, the undo is refused (400) with "note: must not be blank".
 22. **Only the last ordinary change can be undone.**
-    Given a report whose only history row is empty → NEW, when an undo is sent,
-    then it is refused (409) with "nothing to correct". Given a report whose last
-    row is already an undo, a second undo is refused the same way.
+    Given a report with no status changes, when an undo is sent, then it is
+    refused (409) with "no status change available to undo". Given a report
+    whose last row is already an undo, a second undo is refused (409) with
+    "latest status change is already an undo".
 23. **Undoing the start of work makes the report editable again.**
     Given a report moved from NEW to IN_PROGRESS, when the change is undone with
     a note, then the status is NEW, and an edit of the description is accepted
@@ -358,6 +371,12 @@ knows" means the address is one of the four canned addresses above.
   differently, so a failed load never looks like an empty list; dates are shown
   as DD/MM/YYYY; the register's answer is shown live, like the example's
   `/owner`, and never stored.
+- **API shapes** (16.11.2026): the screens and this specification follow the
+  API as built in PR #4: categories as codes, the list as one page
+  (`content`, `page`, `size`), the summary as totals by status and by
+  category, the history as a plain list, undo at `/status-changes/undo` marked
+  by `UNDO: ` in the note, and no history row on create. The messages above
+  are the ones the API sends.
 - **Tests:** the lecturer strongly recommends more than two tests (23.10.2026).
   This specification has 26 business tests.
 - **Presentation** (lecturer, 23.10.2026): on 26 or 27 November, 10 minutes

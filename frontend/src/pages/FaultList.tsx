@@ -20,7 +20,7 @@ import {
   type AddressAnswer,
   type FaultCategory,
   type FaultReport,
-  type FaultSummaryRow,
+  type FaultSummary,
 } from '../api';
 import { FaultStatusTag } from './FaultStatusTag';
 
@@ -56,7 +56,7 @@ export const FaultList = () => {
   const [applied, setApplied] = useState<AppliedFilters>({});
   const [selected, setSelected] = useState<FaultReport | null>(null);
   const [registerAnswer, setRegisterAnswer] = useState<AddressAnswer | null>(null);
-  const [summary, setSummary] = useState<FaultSummaryRow[] | null>(null);
+  const [summary, setSummary] = useState<FaultSummary | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export const FaultList = () => {
       faultsApi
         .list({ addressContains: text || undefined, ...filters })
         .then((result) => {
-          setReports(result.data);
+          setReports(result.content);
           setLoadError(null);
         })
         .catch((e: Error) => {
@@ -94,8 +94,8 @@ export const FaultList = () => {
   useEffect(() => {
     faultsApi
       .summary()
-      .then((rows) => {
-        setSummary(rows);
+      .then((counts) => {
+        setSummary(counts);
         setSummaryError(null);
       })
       .catch((e: Error) => {
@@ -258,13 +258,13 @@ export const FaultList = () => {
   );
 };
 
-/** Counts of active reports per category and status, from /summary. */
+/** Counts of active reports by status and by category, from /summary. */
 const SummaryCard = ({
   summary,
   error,
   categoryName,
 }: {
-  summary: FaultSummaryRow[] | null;
+  summary: FaultSummary | null;
   error: string | null;
   categoryName: (code: string) => string;
 }) => {
@@ -273,23 +273,32 @@ const SummaryCard = ({
     body = <span style={{ opacity: 0.65 }}>Could not load the counts: {error}</span>;
   } else if (summary === null) {
     body = <span style={{ opacity: 0.65 }}>Loading…</span>;
-  } else if (summary.length === 0) {
+  } else if (summary.total === 0) {
     body = <span>No reports yet</span>;
   } else {
-    const byCategory = new Map<string, FaultSummaryRow[]>();
-    summary.forEach((row) => byCategory.set(row.categoryCode, [...(byCategory.get(row.categoryCode) ?? []), row]));
+    const statuses = FAULT_STATUSES.filter((s) => summary.byStatus[s]);
     body = (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
-        {[...byCategory.entries()].map(([code, rows]) => (
-          <div key={code}>
-            <b>{categoryName(code)}</b>
-            {rows.map((row) => (
-              <div key={row.status}>
-                {FAULT_STATUS_LABELS[row.status] ?? row.status}: {row.count}
-              </div>
-            ))}
-          </div>
-        ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32 }}>
+        <div>
+          <b>Total</b>
+          <div>{summary.total}</div>
+        </div>
+        <div>
+          <b>By status</b>
+          {statuses.map((s) => (
+            <div key={s}>
+              {FAULT_STATUS_LABELS[s]}: {summary.byStatus[s]}
+            </div>
+          ))}
+        </div>
+        <div>
+          <b>By category</b>
+          {Object.entries(summary.byCategory).map(([code, count]) => (
+            <div key={code}>
+              {categoryName(code)}: {count}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

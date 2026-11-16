@@ -91,8 +91,10 @@ export const animalsApi = {
 };
 
 // ── FAULTS: public infrastructure fault reporting ────────────────────────────
-// The client for the FAULTS component, exactly as specified in
-// docs/src/specifications/FAULTS.01-fault-reporting.md § API.
+// The client for the FAULTS component, as specified in
+// docs/src/specifications/FAULTS.01-fault-reporting.md § API. The types follow
+// the backend's JSON as it is sent. Two things the screens need are not sent by
+// the API and are worked out here: category names and the undo flag.
 
 export type FaultStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
 
@@ -109,6 +111,16 @@ export interface FaultCategory {
   code: string;
   name: string;
 }
+
+/**
+ * The API sends category codes only. The name shown on screen is made from the
+ * code (ROAD_SURFACE becomes "Road surface"), which gives the same names as the
+ * fault_category table.
+ */
+const nameFromCode = (code: string): string => {
+  const words = code.toLowerCase().replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
 
 export interface FaultReport {
   id: number;
@@ -136,22 +148,41 @@ export interface FaultReportInput {
   observedOn?: string;
 }
 
+/** One page of reports, as GET /api/faults/reports sends it. */
+export interface FaultReportPage {
+  content: FaultReport[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+/** GET /api/faults/reports/summary: active reports counted by status and by category. */
+export interface FaultSummary {
+  total: number;
+  byStatus: Partial<Record<FaultStatus, number>>;
+  byCategory: Record<string, number>;
+}
+
+/** One row of a report's status history, oldest first. */
 export interface StatusChange {
   id: number;
   reportId: number;
-  fromStatus?: FaultStatus;
+  fromStatus?: FaultStatus | null;
   toStatus: FaultStatus;
-  note?: string;
-  correction: boolean;
-  sysCreatedAt?: string;
-  sysCreatedBy?: string;
+  note?: string | null;
+  createdAt?: string;
+  createdBy?: string;
 }
 
-export interface FaultSummaryRow {
-  categoryCode: string;
-  status: FaultStatus;
-  count: number;
-}
+/** An undo is saved as a normal history row whose note starts with "UNDO: ". */
+const UNDO_PREFIX = 'UNDO: ';
+
+export const isUndo = (row: StatusChange): boolean => Boolean(row.note?.startsWith(UNDO_PREFIX));
+
+/** The note as people wrote it, without the "UNDO: " marker. */
+export const noteText = (row: StatusChange): string | undefined =>
+  row.note ? (isUndo(row) ? row.note.slice(UNDO_PREFIX.length) : row.note) : undefined;
 
 /** The address register's answer, as the register sends it. */
 export interface AddressAnswer {
@@ -173,24 +204,24 @@ const withJson = (method: string, body: unknown): RequestInit => ({
 
 export const faultsApi = {
   categories: (): Promise<FaultCategory[]> =>
-    fetch('/api/faults/categories', { headers: authHeaders() }).then((r) =>
-      handle<FaultCategory[]>(r),
-    ),
+    fetch('/api/faults/categories', { headers: authHeaders() })
+      .then((r) => handle<string[]>(r))
+      .then((codes) => codes.map((code) => ({ code, name: nameFromCode(code) }))),
 
-  /** Newest first; the filters are optional and combine. */
-  list: (filters: FaultListFilters = {}): Promise<QueryResult<FaultReport>> => {
-    const params = new URLSearchParams({ limit: '50', sort: '-id' });
+  /** Newest first, the first 50; the filters are optional and combine. */
+  list: (filters: FaultListFilters = {}): Promise<FaultReportPage> => {
+    const params = new URLSearchParams({ size: '50', sort: 'newest' });
     if (filters.addressContains) params.set('addressContains', filters.addressContains);
     if (filters.status) params.set('status', filters.status);
     if (filters.categoryCode) params.set('categoryCode', filters.categoryCode);
     return fetch(`/api/faults/reports?${params.toString()}`, { headers: authHeaders() }).then(
-      (r) => handle<QueryResult<FaultReport>>(r),
+      (r) => handle<FaultReportPage>(r),
     );
   },
 
-  summary: (): Promise<FaultSummaryRow[]> =>
+  summary: (): Promise<FaultSummary> =>
     fetch('/api/faults/reports/summary', { headers: authHeaders() }).then((r) =>
-      handle<FaultSummaryRow[]>(r),
+      handle<FaultSummary>(r),
     ),
 
   get: (id: number): Promise<FaultReport> =>
@@ -218,19 +249,20 @@ export const faultsApi = {
       handle<AddressAnswer>(r),
     ),
 
-  statusChanges: (id: number): Promise<QueryResult<StatusChange>> =>
+  statusChanges: (id: number): Promise<StatusChange[]> =>
     fetch(`/api/faults/reports/${id}/status-changes`, { headers: authHeaders() }).then((r) =>
-      handle<QueryResult<StatusChange>>(r),
+      handle<StatusChange[]>(r),
     ),
 
-  changeStatus: (id: number, toStatus: FaultStatus, note?: string): Promise<StatusChange> =>
+  /** POST — moves the report to the next status; answers with the updated report. */
+  changeStatus: (id: number, toStatus: FaultStatus, note?: string): Promise<FaultReport> =>
     fetch(`/api/faults/reports/${id}/status-changes`, withJson('POST', { toStatus, note })).then(
-      (r) => handle<StatusChange>(r),
+      (r) => handle<FaultReport>(r),
     ),
 
-  /** Undo the last status change; the note is required. */
-  correct: (id: number, note: string): Promise<StatusChange> =>
-    fetch(`/api/faults/reports/${id}/corrections`, withJson('POST', { note })).then((r) =>
-      handle<StatusChange>(r),
+  /** Undo the last status change; the note is required. Answers with the updated report. */
+  undo: (id: number, note: string): Promise<FaultReport> =>
+    fetch(`/api/faults/reports/${id}/status-changes/undo`, withJson('POST', { note })).then((r) =>
+      handle<FaultReport>(r),
     ),
 };
