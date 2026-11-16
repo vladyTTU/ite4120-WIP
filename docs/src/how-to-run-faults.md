@@ -43,7 +43,7 @@ in automatically as a mock user.
 ## 3. Try it in five minutes
 
 1. Open <http://localhost:18640/faults>. The list shows the demo reports and
-   the counts per category and status.
+   the counts: the total, per status and per category.
 2. Click **Report a problem**. Choose *Streetlight*, type the address
    `Ehitajate tee 5, Tallinn` and a short description, and send it. The new
    report opens with status *New* and the address code *ADS-0001* from the
@@ -71,7 +71,7 @@ any change to the screens or the API, and before the presentation.
 
 | # | Screen | Do | Expect |
 | --- | --- | --- | --- |
-| 1 | List | open <http://localhost:18640/faults> | the reports, newest first; the counts per category and status above the list |
+| 1 | List | open <http://localhost:18640/faults> | the reports, newest first; above the list, the total and the counts per status and per category |
 | 2 | List | type `ehitajate` in the search field | only reports with that address; letter case does not matter |
 | 3 | List | open the filter, choose status *New*, press Apply; then Clear all | only New reports; then all of them again |
 | 4 | List | click a row (not the report number) | the detail panel: category, address with its code, description, status, and the register's answer "via the address register (mock / X-Road)" |

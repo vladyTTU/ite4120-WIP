@@ -17,6 +17,8 @@ import {
 import {
   faultsApi,
   FAULT_STATUS_LABELS,
+  isUndo,
+  noteText,
   type AddressAnswer,
   type FaultCategory,
   type FaultReport,
@@ -92,8 +94,8 @@ export const FaultDetail = () => {
   const loadExtras = useCallback(() => {
     faultsApi
       .statusChanges(reportId)
-      .then((result) => {
-        setHistory(result.data);
+      .then((rows) => {
+        setHistory(rows);
         setHistoryError(null);
       })
       .catch((e: Error) => {
@@ -189,7 +191,7 @@ export const FaultDetail = () => {
   const undo = async () => {
     setBusy(true);
     try {
-      await faultsApi.correct(reportId, undoNote.trim());
+      await faultsApi.undo(reportId, undoNote.trim());
       notify.success('Last change undone', `Report ${reportId}`);
       setUndoNote('');
       await reload();
@@ -203,7 +205,7 @@ export const FaultDetail = () => {
   const status = dc.current.status;
   const allowedNext = status ? NEXT_STATUSES[status] ?? [] : [];
   const last = history.length > 0 ? history[history.length - 1] : undefined;
-  const canUndo = Boolean(last && last.fromStatus && !last.correction);
+  const canUndo = Boolean(last && last.fromStatus && !isUndo(last));
   const noteRequired = nextStatus === 'REJECTED';
 
   /** The Status section: current status, change, undo, and the history. Read-only in edit mode too. */
@@ -278,15 +280,15 @@ export const FaultDetail = () => {
         {history.map((row) => (
           <div key={row.id}>
             {row.fromStatus ? FAULT_STATUS_LABELS[row.fromStatus] : '—'} → {FAULT_STATUS_LABELS[row.toStatus]}
-            {row.correction && (
+            {isUndo(row) && (
               <>
                 {' '}
                 <AppTag>Undo</AppTag>
               </>
             )}
-            {row.note && <> · “{row.note}”</>}
+            {noteText(row) && <> · “{noteText(row)}”</>}
             <div style={{ opacity: 0.65, fontSize: 12 }}>
-              {row.sysCreatedBy ?? '—'}, {formatDateTime(row.sysCreatedAt)}
+              {row.createdBy ?? '—'}, {formatDateTime(row.createdAt)}
             </div>
           </div>
         ))}
